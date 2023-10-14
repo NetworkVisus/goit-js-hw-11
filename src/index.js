@@ -3,6 +3,7 @@ import Notiflix from 'notiflix';
 import * as imagesApi from './pixabay-api.js';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
+import _ from 'lodash';
 
 const refs = {
   form: document.querySelector('#search-form'),
@@ -34,7 +35,7 @@ async function handleSubmit(event) {
   page = 1;
   loading = false;
   loadedImages = 20;
-  window.addEventListener('scroll', handleScroll);
+  window.addEventListener('scroll', _.throttle(handleScroll, 1000));
   try {
     const response = await imagesApi.getImages(refs.form.elements[0].value);
     if (response.data.total <= 0) {
@@ -85,7 +86,7 @@ function handleScroll() {
             scrollSmoothly();
           });
         loading = true;
-        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('scroll', _.throttle(handleScroll, 1000));
         return;
       }
     });
