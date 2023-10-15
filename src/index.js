@@ -13,6 +13,7 @@ const refs = {
 let page = 1;
 let totalPages = 0;
 let perPage = 40;
+let stopScroll = false;
 
 refs.form.addEventListener('submit', handleSubmit);
 const modal = new SimpleLightbox('.photo-card a', {
