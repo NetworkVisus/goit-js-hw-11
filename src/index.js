@@ -11,8 +11,7 @@ const refs = {
   submitBtn: document.querySelector('.submit-btn'), //doesn't work for some reason:/
 };
 let page = 1;
-let loading = false;
-let loadedImages = 20;
+let totalPages = 0;
 
 refs.form.addEventListener('submit', handleSubmit);
 const modal = new SimpleLightbox('.photo-card a', {
@@ -30,22 +29,36 @@ function scrollSmoothly() {
 
 async function handleSubmit(event) {
   event.preventDefault();
+  if (refs.form.elements[0].value.trim() === '') {
+    Notiflix.Notify.failure(
+      'Input is empty, please write down some search query!'
+    );
+    refs.gallery.innerHTML = '';
+    return;
+  }
   refs.form.elements[1].disabled = true;
   refs.gallery.innerHTML = '';
   page = 1;
-  loading = false;
-  loadedImages = 20;
+  perPage = 40;
+  stopScroll = false;
+
   window.addEventListener('scroll', _.throttle(handleScroll, 1000));
   try {
-    const response = await imagesApi.getImages(refs.form.elements[0].value);
+    const response = await imagesApi.getImages(
+      refs.form.elements[0].value.trim()
+    );
     if (response.data.total <= 0) {
       Notiflix.Notify.failure(
         'Sorry, there are no images matching your search query. Please try again.'
       );
-      refs.form.elements[1].disabled = true;
-      window.removeEventListener('scroll');
+      refs.form.elements[1].disabled = false;
+      window.removeEventListener('scroll', _.throttle(handleScroll, 1000));
+      stopScroll = true;
       return;
     }
+    totalPages = Math.ceil(response.data.totalHits / perPage);
+    if (totalPages === 1) Notiflix.Notify.success('Only one page was found :(');
+    stopScroll = false;
     refs.gallery.insertAdjacentHTML(
       'beforeend',
       createGalleryMarkup(response.data.hits)
@@ -59,39 +72,30 @@ async function handleSubmit(event) {
 }
 
 function handleScroll() {
-  if (loading) return;
+  if (totalPages === 1) return;
+  if (stopScroll) return;
   if (window.scrollY + window.innerHeight >= refs.gallery.scrollHeight) {
-    loading = true;
-    page += 1;
-    imagesApi.getImages(refs.form.elements[0].value, page).then(({ data }) => {
-      refs.gallery.insertAdjacentHTML(
-        'beforeend',
-        createGalleryMarkup(data.hits)
+    if (totalPages <= page) {
+      Notiflix.Notify.success(
+        `We're sorry, but you've reached the end of search results.`
       );
-      modal.refresh();
-      scrollSmoothly();
-      loadedImages += 20;
-      if (loadedImages + 20 >= data.totalHits) {
-        Notiflix.Notify.success(
-          `We're sorry, but you've reached the end of search results.`
+      window.removeEventListener('scroll', _.throttle(handleScroll, 1000));
+      stopScroll = true;
+      return;
+    }
+    page += 1;
+    imagesApi
+      .getImages(refs.form.elements[0].value.trim(), page)
+      .then(({ data }) => {
+        refs.gallery.insertAdjacentHTML(
+          'beforeend',
+          createGalleryMarkup(data.hits)
         );
-        imagesApi
-          .getImages(refs.form.elements[0].value, page + 1)
-          .then(({ data }) => {
-            refs.gallery.insertAdjacentHTML(
-              'beforeend',
-              createGalleryMarkup(data.hits)
-            );
-            modal.refresh();
-            scrollSmoothly();
-          });
-        loading = true;
-        window.removeEventListener('scroll', _.throttle(handleScroll, 1000));
-        return;
-      }
-    });
+        console.log(data.hits.page);
+        modal.refresh();
+        scrollSmoothly();
+      });
   }
-  loading = false;
 }
 
 function createGalleryMarkup(imagesObj) {
